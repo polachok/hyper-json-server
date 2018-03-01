@@ -25,6 +25,11 @@ error_chain! {
             description("bad request")
             display("bad request {}", s)
         }
+
+        MethodNotAllowed {
+            description("method not allowed")
+            display("method not allowed")
+        }
     }
 }
 
@@ -96,7 +101,7 @@ impl<S: Service + JsonService + 'static> Service for JsonServer<S>
                 Either::B(future::ok(error_to_response(e)))
             }
         } } else {
-                Either::B(future::ok(Response::new().with_status(StatusCode::MethodNotAllowed)))
+                Either::B(future::ok(error_to_response(ErrorKind::MethodNotAllowed.into())))
             })
     }
 }
