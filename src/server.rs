@@ -25,6 +25,11 @@ error_chain! {
             description("bad request")
             display("bad request {}", s)
         }
+
+        MethodNotAllowed {
+            description("method not allowed")
+            display("method not allowed")
+        }
     }
 }
 
@@ -67,7 +72,9 @@ impl<S: Service + JsonService + 'static> Service for JsonServer<S>
 
     fn call(&self, req: Request) -> Self::Future {
         let service = self.inner.clone();
-        Box::new(match service.deserialize(req.path(), req.method()) {
+        Box::new(
+            if *req.method() == Method::Post {
+            match service.deserialize(req.path(), req.method()) {
             Ok(f) => {
                 let req = req.body().concat2()
                             .map_err(move |e| ErrorKind::InternalError(e.to_string()).into())
@@ -93,7 +100,9 @@ impl<S: Service + JsonService + 'static> Service for JsonServer<S>
             Err(e) => {
                 Either::B(future::ok(error_to_response(e)))
             }
-        })
+        } } else {
+                Either::B(future::ok(error_to_response(ErrorKind::MethodNotAllowed.into())))
+            })
     }
 }
 
