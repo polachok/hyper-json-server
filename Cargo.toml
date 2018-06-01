@@ -2,6 +2,8 @@
 name = "hyper-json-server"
 version = "0.1.0"
 authors = ["Alexander Polyakov <plhk@sdf.org>"]
+description = "post json & get json reply"
+license = "MIT"
 
 [dependencies]
 hyper = "0.11"
