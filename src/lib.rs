@@ -10,6 +10,7 @@ mod server;
 
 pub use server::JsonServer;
 pub use server::{Error, ErrorKind, Result};
+pub use server::{ErrorInspector, IgnoreErrors};
 
 #[cfg(test)]
 mod tests {

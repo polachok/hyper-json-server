@@ -56,7 +56,7 @@ fn error_to_response(error: Error) -> Response {
         .with_status(status)
 }
 
-impl<S: Service + JsonService + 'static> Service for JsonServer<S> {
+impl<S: Service + JsonService + ErrorInspector + 'static> Service for JsonServer<S> {
     type Request = Request;
     type Response = Response;
     type Error = hyper::Error;
@@ -64,13 +64,18 @@ impl<S: Service + JsonService + 'static> Service for JsonServer<S> {
 
     fn call(&self, req: Request) -> Self::Future {
         let service = self.inner.clone();
+        let service_ = self.inner.clone();
         Box::new(if *req.method() == Method::Post {
             match service.deserialize(req.path(), req.method()) {
                 Ok(f) => {
                     let req = req.body()
                         .concat2()
                         .map_err(move |e| ErrorKind::InternalError(e.to_string()).into())
-                        .and_then(move |chunk| f(chunk.as_ref()));
+                        .and_then(move |chunk| f(chunk.as_ref()))
+                        .map_err(move |err| {
+                            service_.on_error(&err);
+                            err
+                        });
                     let res = req.and_then(move |req| {
                         service
                             .call(req)
@@ -112,6 +117,32 @@ where
         &self,
         resp: ::std::result::Result<Self::Response, <Self as Service>::Error>,
     ) -> Result<Vec<u8>>;
+}
+
+pub trait ErrorInspector {
+    fn on_error(&self, err: &Error);
+}
+
+pub struct IgnoreErrors<S> {
+    inner: S,
+}
+
+impl<S> ErrorInspector for IgnoreErrors<S> {
+    fn on_error(&self, _err: &Error) {}
+}
+
+impl<S> Service for IgnoreErrors<S>
+where
+    S: Service,
+{
+    type Request = S::Request;
+    type Response = S::Response;
+    type Error = S::Error;
+    type Future = S::Future;
+
+    fn call(&self, req: S::Request) -> Self::Future {
+        self.inner.call(req)
+    }
 }
 
 impl<S> JsonService for S
