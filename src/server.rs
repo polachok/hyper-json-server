@@ -21,9 +21,9 @@ error_chain! {
             display("internal server error {}", s)
         }
 
-        BadRequest(s: String) {
+        BadRequest(error: String, req: String) {
             description("bad request")
-            display("bad request {}", s)
+            display("bad request '{}': {}", req, error)
         }
 
         MethodNotAllowed {
@@ -40,7 +40,7 @@ pub struct JsonServer<S> {
 fn error_to_response(error: Error) -> Response {
     let (status, body) = match error.kind() {
         &ErrorKind::NotFound(_) => (StatusCode::NotFound, format!("{}", error)),
-        &ErrorKind::BadRequest(_) => (StatusCode::BadRequest, format!("{}", error)),
+        &ErrorKind::BadRequest(_, _) => (StatusCode::BadRequest, format!("{}", error)),
         &ErrorKind::InternalError(_) => (StatusCode::InternalServerError, format!("{}", error)),
         _ => (StatusCode::InternalServerError, format!("{}", error)),
     };
@@ -159,7 +159,7 @@ where
     ) -> Result<fn(&[u8]) -> Result<<S as Service>::Request>> {
         Ok(|body| match serde_json::from_slice(body) {
             Ok(vec) => return Ok(vec),
-            Err(e) => return Err(ErrorKind::BadRequest(e.to_string()).into()),
+            Err(e) => return Err(ErrorKind::BadRequest(e.to_string(), String::from_utf8_lossy(body).to_string()).into()),
         })
     }
 
